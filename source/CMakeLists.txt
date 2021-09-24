@@ -20,6 +20,8 @@ PRIVATE
     "${CMAKE_CURRENT_LIST_DIR}/svgelement.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/symbolelement.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/useelement.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/textelement.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/tspanelement.cpp"
 )
 
 target_include_directories(lunasvg

@@ -1,6 +1,7 @@
 #include "canvas.h"
 
 #include <cmath>
+#include <cassert>
 
 namespace lunasvg {
 
@@ -13,24 +14,25 @@ static plutovg_spread_method_t to_plutovg_spread_methood(SpreadMethod spread);
 static void to_plutovg_stops(plutovg_gradient_t* gradient, const GradientStops& stops);
 static void to_plutovg_path(plutovg_t* pluto, const Path& path);
 
-std::shared_ptr<Canvas> Canvas::create(unsigned char* data, unsigned int width, unsigned int height, unsigned int stride)
+std::shared_ptr<CanvasBase> Canvas::create(unsigned char* data, unsigned int width, unsigned int height, unsigned int stride)
 {
-    return std::shared_ptr<Canvas>(new Canvas(data, static_cast<int>(width), static_cast<int>(height), static_cast<int>(stride)));
+    return std::make_shared<Canvas>(
+        data, static_cast<int>(width), static_cast<int>(height), static_cast<int>(stride));
 }
 
-std::shared_ptr<Canvas> Canvas::create(double x, double y, double width, double height)
+std::shared_ptr<CanvasBase> Canvas::create(double x, double y, double width, double height)
 {
     if(width <= 0.0 || height <= 0.0)
-        return std::shared_ptr<Canvas>(new Canvas(0, 0, 1, 1));
+        return std::make_shared<Canvas>(0, 0, 1, 1);
 
     auto l = static_cast<int>(floor(x));
     auto t = static_cast<int>(floor(y));
     auto r = static_cast<int>(ceil(x + width));
     auto b = static_cast<int>(ceil(y + height));
-    return std::shared_ptr<Canvas>(new Canvas(l, t, r - l, b - t));
+    return std::make_shared<Canvas>(l, t, r - l, b - t);
 }
 
-std::shared_ptr<Canvas> Canvas::create(const Rect& box)
+std::shared_ptr<CanvasBase> Canvas::create(const Rect& box)
 {
     return create(box.x, box.y, box.w, box.h);
 }
@@ -49,6 +51,10 @@ Canvas::Canvas(int x, int y, int width, int height)
     pluto = plutovg_create(surface);
     plutovg_matrix_init_translate(&translation, -x, -y);
     plutovg_rect_init(&rect, x, y, width, height);
+}
+
+Canvas::Canvas()
+{
 }
 
 Canvas::~Canvas()
@@ -84,9 +90,11 @@ void Canvas::setRadialGradient(double cx, double cy, double r, double fx, double
     plutovg_gradient_destroy(gradient);
 }
 
-void Canvas::setTexture(const Canvas* source, TextureType type, const Transform& transform)
+void Canvas::setTexture(const CanvasBase* source, TextureType type, const Transform& transform)
 {
-    auto texture = plutovg_texture_create(source->surface);
+    auto src = dynamic_cast<const Canvas*>(source);
+    assert(src != nullptr);
+    auto texture = plutovg_texture_create(src->surface);
     auto matrix = to_plutovg_matrix(transform);
     if(type == TextureType::Plain)
         plutovg_texture_set_type(texture, plutovg_texture_type_plain);
@@ -126,9 +134,11 @@ void Canvas::stroke(const Path& path, const Transform& transform, double width, 
     plutovg_stroke(pluto);
 }
 
-void Canvas::blend(const Canvas* source, BlendMode mode, double opacity)
+void Canvas::blend(const CanvasBase* source, BlendMode mode, double opacity)
 {
-    plutovg_set_source_surface(pluto, source->surface, source->rect.x, source->rect.y);
+    auto src = dynamic_cast<const Canvas*>(source);
+    assert(src != nullptr);
+    plutovg_set_source_surface(pluto, src->surface, src->rect.x, src->rect.y);
     plutovg_set_operator(pluto, to_plutovg_operator(mode));
     plutovg_set_opacity(pluto, opacity);
     plutovg_set_matrix(pluto, &translation);

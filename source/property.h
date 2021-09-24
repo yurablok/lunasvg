@@ -64,6 +64,20 @@ enum class MarkerUnits
     UserSpaceOnUse
 };
 
+enum class TextureType
+{
+    Plain,
+    Tiled
+};
+
+enum class BlendMode
+{
+    Src,
+    Src_Over,
+    Dst_In,
+    Dst_Out
+};
+
 class Color
 {
 public:
@@ -357,6 +371,17 @@ public:
 private:
     double m_value{0};
     MarkerOrient m_type{MarkerOrient::Angle};
+};
+
+using GradientStop = std::pair<double, Color>;
+using GradientStops = std::vector<GradientStop>;
+
+using DashArray = std::vector<double>;
+
+struct DashData
+{
+    DashArray array;
+    double offset{ 0.0 };
 };
 
 } // namespace lunasvg

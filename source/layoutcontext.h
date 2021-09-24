@@ -1,12 +1,12 @@
-﻿#ifndef LAYOUTCONTEXT_H
+#ifndef LAYOUTCONTEXT_H
 #define LAYOUTCONTEXT_H
 
 #include "property.h"
-#include "canvas.h"
 
 #include <list>
 #include <map>
 #include <set>
+#include <functional>
 
 namespace lunasvg {
 
@@ -21,7 +21,9 @@ enum class LayoutId
     LinearGradient,
     RadialGradient,
     Pattern,
-    SolidColor
+    SolidColor,
+    Text,
+    TSpan
 };
 
 class RenderState;
@@ -158,7 +160,7 @@ class LayoutPattern : public LayoutContainer
 public:
     LayoutPattern();
 
-    void apply(RenderState& state) const;
+    void apply(RenderState& state) const override;
 
 public:
     double x;
@@ -218,10 +220,33 @@ class LayoutSolidColor : public LayoutObject
 public:
     LayoutSolidColor();
 
-    void apply(RenderState& state) const;
+    void apply(RenderState& state) const override;
 
 public:
     Color color;
+};
+
+class LayoutText : public LayoutContainer
+{
+public:
+    LayoutText();
+
+    void apply(RenderState& state) const override;
+
+public:
+    //Color color;
+};
+
+class LayoutTSpan : public LayoutObject
+{
+public:
+    LayoutTSpan();
+
+    void apply(RenderState& state) const override;
+
+public:
+    //Color color;
+    std::string text;
 };
 
 class FillData
@@ -289,10 +314,10 @@ class LayoutShape : public LayoutObject
 public:
     LayoutShape();
 
-    void render(RenderState& state) const;
-    Rect map(const Rect& rect) const;
-    const Rect& fillBoundingBox() const;
-    const Rect& strokeBoundingBox() const;
+    void render(RenderState& state) const override;
+    Rect map(const Rect& rect) const override;
+    const Rect& fillBoundingBox() const override;
+    const Rect& strokeBoundingBox() const override;
 
 public:
     Path path;
@@ -324,6 +349,8 @@ struct BlendInfo
     Rect clip;
 };
 
+class CanvasBase;
+
 class RenderState
 {
 public:
@@ -337,7 +364,7 @@ public:
     const Rect& objectBoundingBox() const { return m_object->fillBoundingBox(); }
 
 public:
-    std::shared_ptr<Canvas> canvas;
+    std::shared_ptr<CanvasBase> canvas;
     Transform transform;
 
 private:

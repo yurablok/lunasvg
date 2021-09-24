@@ -1,5 +1,6 @@
 #include "layoutcontext.h"
 #include "parser.h"
+#include "canvas_base.h"
 
 #include "maskelement.h"
 #include "clippathelement.h"
@@ -96,7 +97,7 @@ LayoutClipPath::LayoutClipPath()
 void LayoutClipPath::apply(RenderState& state) const
 {
     RenderState newState(this, RenderMode::Clipping);
-    newState.canvas = Canvas::create(state.canvas->box());
+    newState.canvas = state.canvas->create(state.canvas->box());
     newState.transform = transform * state.transform;
     if(units == Units::ObjectBoundingBox)
     {
@@ -128,7 +129,7 @@ void LayoutMask::apply(RenderState& state) const
     }
 
     RenderState newState(this, state.mode());
-    newState.canvas = Canvas::create(state.canvas->box());
+    newState.canvas = state.canvas->create(state.canvas->box());
     newState.transform = state.transform;
     if(contentUnits == Units::ObjectBoundingBox)
     {
@@ -247,7 +248,7 @@ void LayoutPattern::apply(RenderState& state) const
     auto height = rect.h * scaley;
 
     RenderState newState(this, RenderMode::Display);
-    newState.canvas = Canvas::create(0, 0, width, height);
+    newState.canvas = state.canvas->create(0, 0, width, height);
     newState.transform = Transform::scaled(scalex, scaley);
 
     if(viewBox.valid())
@@ -323,11 +324,14 @@ void FillData::fill(RenderState& state, const Path& path) const
     if(opacity == 0.0 || (painter == nullptr && color.isNone()))
         return;
 
-    if(painter == nullptr)
+    if(painter == nullptr) {
+        state.canvas->setObject();
         state.canvas->setColor(color);
-    else
+    }
+    else {
+        state.canvas->setObject(painter);
         painter->apply(state);
-
+    }
     state.canvas->fill(path, state.transform, fillRule, BlendMode::Src_Over, opacity);
 }
 
@@ -336,11 +340,14 @@ void StrokeData::stroke(RenderState& state, const Path& path) const
     if(opacity == 0.0 || (painter == nullptr && color.isNone()))
         return;
 
-    if(painter == nullptr)
+    if(painter == nullptr) {
+        state.canvas->setObject();
         state.canvas->setColor(color);
-    else
+    }
+    else {
+        state.canvas->setObject(painter);
         painter->apply(state);
-
+    }
     state.canvas->stroke(path, state.transform, width, cap, join, miterlimit, dash, BlendMode::Src_Over, opacity);
 }
 
@@ -459,7 +466,7 @@ void RenderState::beginGroup(RenderState& state, const BlendInfo& info)
     auto box = transform.map(m_object->strokeBoundingBox());
     box.intersect(transform.map(info.clip));
     box.intersect(state.canvas->box());
-    canvas = Canvas::create(box);
+    canvas = state.canvas->create(box);
 }
 
 void RenderState::endGroup(RenderState& state, const BlendInfo& info)
@@ -761,6 +768,26 @@ LayoutBreaker::LayoutBreaker(LayoutContext* context, const Element* element)
 LayoutBreaker::~LayoutBreaker()
 {
     m_context->removeReference(m_element);
+}
+
+LayoutText::LayoutText()
+    : LayoutContainer(LayoutId::Text)
+{
+}
+
+void LayoutText::apply(RenderState& state) const
+{
+    //TODO: unimplemented
+}
+
+LayoutTSpan::LayoutTSpan()
+    : LayoutObject(LayoutId::TSpan)
+{
+}
+
+void LayoutTSpan::apply(RenderState& state) const
+{
+    //TODO: unimplemented
 }
 
 } // namespace lunasvg

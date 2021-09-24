@@ -2,6 +2,8 @@
 #include "parserutils.h"
 #include "layoutcontext.h"
 
+#include <unordered_map>
+
 #include "clippathelement.h"
 #include "defselement.h"
 #include "gelement.h"
@@ -14,6 +16,8 @@
 #include "symbolelement.h"
 #include "useelement.h"
 #include "styleelement.h"
+#include "textelement.h"
+#include "tspanelement.h"
 
 namespace lunasvg {
 
@@ -990,7 +994,7 @@ bool Parser::parseTransform(const char*& ptr, const char* end, TransformType& ty
     return true;
 }
 
-static const std::map<std::string, ElementId> elementmap = {
+static const std::unordered_map<std::string, ElementId> elementmap = {
     {"circle", ElementId::Circle},
     {"clipPath", ElementId::ClipPath},
     {"defs", ElementId::Defs},
@@ -1011,10 +1015,12 @@ static const std::map<std::string, ElementId> elementmap = {
     {"solidColor", ElementId::SolidColor},
     {"svg", ElementId::Svg},
     {"symbol", ElementId::Symbol},
-    {"use", ElementId::Use}
+    {"use", ElementId::Use},
+    {"text", ElementId::Text},
+    {"tspan", ElementId::TSpan}
 };
 
-static const std::map<std::string, PropertyId> propertymap = {
+static const std::unordered_map<std::string, PropertyId> propertymap = {
     {"class", PropertyId::Class},
     {"clipPathUnits", PropertyId::ClipPathUnits},
     {"cx", PropertyId::Cx},
@@ -1057,7 +1063,7 @@ static const std::map<std::string, PropertyId> propertymap = {
     {"y2", PropertyId::Y2}
 };
 
-static const std::map<std::string, PropertyId> csspropertymap = {
+static const std::unordered_map<std::string, PropertyId> csspropertymap = {
     {"clip-path", PropertyId::Clip_Path},
     {"clip-rule", PropertyId::Clip_Rule},
     {"color", PropertyId::Color},
@@ -1647,6 +1653,10 @@ static inline std::unique_ptr<Element> createElement(ElementId id)
         return std::make_unique<MarkerElement>();
     case ElementId::Style:
         return std::make_unique<StyleElement>();
+    case ElementId::Text:
+        return std::make_unique<TextElement>();
+    case ElementId::TSpan:
+        return std::make_unique<TSpanElement>();
     default:
         break;
     }
@@ -1790,16 +1800,28 @@ bool ParseDocument::parse(const char* data, std::size_t size)
     };
 
     auto handle_text = [&](const char* start, const char* end, bool in_cdata) {
-        if(ignoring > 0 || current == nullptr || current->id != ElementId::Style)
+        if(ignoring > 0 || current == nullptr)
             return;
 
-        if(in_cdata)
-            value.assign(start, end);
-        else
-            decodeText(start, end, value);
-
-        remove_comments(value);
-        cssparser.parseMore(value);
+        switch (current->id) {
+        case ElementId::Style:
+            if(in_cdata)
+                value.assign(start, end);
+            else
+                decodeText(start, end, value);
+            remove_comments(value);
+            cssparser.parseMore(value);
+            break;
+        case ElementId::TSpan:
+            if(in_cdata)
+                value.assign(start, end);
+            else
+                decodeText(start, end, value);
+            current->set(PropertyId::Text, value, 0X0);
+            break;
+        default:
+            break;
+        }
     };
 
     while(ptr < end)

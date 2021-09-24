@@ -6,6 +6,12 @@
 
 ![LunaSVG](https://github.com/sammycage/lunasvg/blob/master/luna.png)
 
+## Purpose of the fork
+
+By using [CanvasBase](https://github.com/yurablok/lunasvg/blob/master/source/canvas_base.h)
+interface and [libharu](https://github.com/libharu/libharu.git) library,
+provide the ability to render [SVG to PDF](TODO_example).
+
 ## Example
 
 ```cpp

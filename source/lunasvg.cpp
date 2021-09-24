@@ -1,5 +1,7 @@
 #include "lunasvg.h"
 #include "layoutcontext.h"
+#include "canvas_base.h"
+#include "canvas.h"
 #include "parser.h"
 
 #include <fstream>
@@ -188,33 +190,44 @@ double Document::height() const
     return root->height;
 }
 
+void Document::render(const std::shared_ptr<CanvasBase>& canvas) const
+{
+    RenderState state(nullptr, RenderMode::Display);
+    state.canvas = canvas;
+    state.transform = {
+        canvas->box().w / root->width, 0, 0,
+        canvas->box().h / root->height, 0, 0
+    };
+    //state.canvas->clear(backgroundColor);
+    root->render(state);
+    state.canvas->rgba();
+}
 void Document::render(Bitmap bitmap, const Matrix& matrix, std::uint32_t backgroundColor) const
 {
     RenderState state(nullptr, RenderMode::Display);
-    state.canvas = Canvas::create(bitmap.data(), bitmap.width(), bitmap.height(), bitmap.stride());
+    state.canvas = std::make_shared<Canvas>(bitmap.data(), bitmap.width(), bitmap.height(), bitmap.stride());
     state.transform = Transform(matrix.a, matrix.b, matrix.c, matrix.d, matrix.e, matrix.f);
     state.canvas->clear(backgroundColor);
     root->render(state);
     state.canvas->rgba();
 }
-
-Bitmap Document::renderToBitmap(std::uint32_t width, std::uint32_t height, std::uint32_t backgroundColor) const
+Bitmap Document::renderToBitmap(uint32_t width, uint32_t height, uint32_t backgroundColor) const
 {
     if(root->width == 0.0 || root->height == 0.0)
         return Bitmap{};
 
     if(width == 0 && height == 0)
     {
-        width = static_cast<std::uint32_t>(std::ceil(root->width));
-        height = static_cast<std::uint32_t>(std::ceil(root->height));
+        width = static_cast<uint32_t>(std::ceil(root->width));
+        height = static_cast<uint32_t>(std::ceil(root->height));
     }
     else if(width != 0 && height == 0)
     {
-        height = static_cast<std::uint32_t>(std::ceil(width * root->height / root->width));
+        height = static_cast<uint32_t>(std::ceil(width * root->height / root->width));
     }
     else if(height != 0 && width == 0)
     {
-        width = static_cast<std::uint32_t>(std::ceil(height * root->width / root->height));
+        width = static_cast<uint32_t>(std::ceil(height * root->width / root->height));
     }
 
     Bitmap bitmap{width, height};

@@ -94,6 +94,7 @@ private:
     std::shared_ptr<Impl> m_impl;
 };
 
+class CanvasBase;
 class LayoutSymbol;
 
 class LUNASVG_API Document
@@ -209,6 +210,12 @@ public:
      * @return the height of the document in pixels
      */
     double height() const;
+
+    /**
+     * @brief Renders the document to a custom canvas
+     * @param canvas - custom canvas
+     */
+    void render(const std::shared_ptr<CanvasBase>& canvas) const;
 
     /**
      * @brief Renders the document to a bitmap

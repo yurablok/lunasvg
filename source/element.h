@@ -1,4 +1,4 @@
-﻿#ifndef ELEMENT_H
+#ifndef ELEMENT_H
 #define ELEMENT_H
 
 #include <memory>
@@ -32,7 +32,9 @@ enum class ElementId
     Style,
     Svg,
     Symbol,
-    Use
+    Use,
+    Text,
+    TSpan
 };
 
 enum class PropertyId
@@ -50,6 +52,13 @@ enum class PropertyId
     Fill,
     Fill_Opacity,
     Fill_Rule,
+    Font_Family,
+    Font_Size,
+    Font_Size_Adjust,
+    Font_Stretch,
+    Font_Style,
+    Font_Variant,
+    Font_Weight,
     Fx,
     Fy,
     GradientTransform,
@@ -103,7 +112,8 @@ enum class PropertyId
     X2,
     Y,
     Y1,
-    Y2
+    Y2,
+    Text
 };
 
 struct Property

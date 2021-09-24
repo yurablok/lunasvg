@@ -2,6 +2,7 @@
 #include "styledelement.h"
 
 #include <cmath>
+#include <limits>
 
 namespace lunasvg {
 
@@ -12,6 +13,10 @@ const Color Color::Green{0, 1, 0, 1};
 const Color Color::Blue{0, 0, 1, 1};
 const Color Color::Yellow{1, 1, 0, 1};
 const Color Color::Transparent{0, 0, 0, 0};
+
+static constexpr double pi = 3.14159265358979323846;
+static constexpr double to_rad = pi / 180.0;
+static constexpr double to_deg = 180.0 / pi;
 
 Color::Color(double r, double g, double b, double a)
     : r(r), g(g), b(b), a(a)
@@ -185,6 +190,26 @@ Transform& Transform::invert()
     return *this;
 }
 
+double Transform::rotation_rad() const
+{
+    if (std::abs(m00 - m11) > 0.001) { // std::numeric_limits<double>::epsilon()
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+    if (m10 * m01 >= 0.0) {
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+    if (std::abs(m10 + m01) > 0.001) { // std::numeric_limits<double>::epsilon()
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+    const double c = m00;
+    const double s = m10;
+    return std::atan2(s, c);
+}
+double Transform::rotation_deg() const
+{
+    return rotation_rad() * to_deg;
+}
+
 void Transform::map(double x, double y, double* _x, double* _y) const
 {
     *_x = x * m00 + y * m01 + m02;
@@ -233,20 +258,18 @@ Rect Transform::map(const Rect& rect) const
     return Rect{l, t, r-l, b-t};
 }
 
-static const double pi = 3.14159265358979323846;
-
 Transform Transform::rotated(double angle)
 {
-    auto c = std::cos(angle * pi / 180.0);
-    auto s = std::sin(angle * pi / 180.0);
+    auto c = std::cos(angle * to_rad);
+    auto s = std::sin(angle * to_rad);
 
     return Transform{c, s, -s, c, 0, 0};
 }
 
 Transform Transform::rotated(double angle, double cx, double cy)
 {
-    auto c = std::cos(angle * pi / 180.0);
-    auto s = std::sin(angle * pi / 180.0);
+    auto c = std::cos(angle * to_rad);
+    auto s = std::sin(angle * to_rad);
 
     auto x = cx * (1 - c) + cy * s;
     auto y = cy * (1 - c) - cx * s;
@@ -261,8 +284,8 @@ Transform Transform::scaled(double sx, double sy)
 
 Transform Transform::sheared(double shx, double shy)
 {
-    auto x = std::tan(shx * pi / 180.0);
-    auto y = std::tan(shy * pi / 180.0);
+    auto x = std::tan(shx * to_rad);
+    auto y = std::tan(shy * to_rad);
 
     return Transform{1, y, x, 1, 0, 0};
 }
@@ -328,8 +351,8 @@ void Path::arcTo(double cx, double cy, double rx, double ry, double xAxisRotatio
     rx = std::fabs(rx);
     ry = std::fabs(ry);
 
-    auto sin_th = std::sin(xAxisRotation * pi / 180.0);
-    auto cos_th = std::cos(xAxisRotation * pi / 180.0);
+    auto sin_th = std::sin(xAxisRotation * to_rad);
+    auto cos_th = std::cos(xAxisRotation * to_rad);
 
     auto dx = (cx - x) / 2.0;
     auto dy = (cy - y) / 2.0;

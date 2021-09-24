@@ -7,61 +7,104 @@
 
 namespace lunasvg {
 
-enum class Display
+enum class Display : uint8_t
 {
     Inline,
     None
 };
 
-enum class Visibility
+enum class Visibility : uint8_t
 {
     Visible,
     Hidden
 };
 
-enum class Overflow
+enum class Overflow : uint8_t
 {
     Visible,
     Hidden
 };
 
-enum class LineCap
+enum class LineCap : uint8_t
 {
     Butt,
     Round,
     Square
 };
 
-enum class LineJoin
+enum class LineJoin : uint8_t
 {
     Miter,
     Round,
     Bevel
 };
 
-enum class WindRule
+enum class WindRule : uint8_t
 {
     NonZero,
     EvenOdd
 };
 
-enum class Units
+enum class Units : uint8_t
 {
     UserSpaceOnUse,
     ObjectBoundingBox
 };
 
-enum class SpreadMethod
+enum class SpreadMethod : uint8_t
 {
     Pad,
     Reflect,
     Repeat
 };
 
-enum class MarkerUnits
+enum class MarkerUnits : uint8_t
 {
     StrokeWidth,
     UserSpaceOnUse
+};
+
+enum class TextureType : uint8_t
+{
+    Plain,
+    Tiled
+};
+
+enum class BlendMode : uint8_t
+{
+    Src,
+    Src_Over,
+    Dst_In,
+    Dst_Out
+};
+
+enum class FontStyle : uint8_t
+{
+    Normal,
+    Italic,
+    Oblique
+};
+
+// https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/font-weight
+// https://drafts.csswg.org/css-fonts-4/#valdef-font-weight-number-1-1000
+enum class FontWeight : uint16_t
+{
+    //Thin      = 100, // CSS Thin
+    Lighter     = 200, // CSS ExtraLight | UltraLight
+    //Light     = 300, // CSS Light
+    Normal      = 400, // CSS Normal
+    //Medium    = 500, // CSS Medium
+    //SemiBold  = 600, // CSS SemiBold | DemiBold
+    Bold        = 700, // CSS Bold
+    //ExtraBold = 800, // CSS ExtraBold | UltraBold
+    Bolder      = 900, // CSS Black | Heavy
+};
+
+struct string_index_view
+{
+    const std::string* buffer = nullptr;
+    uint32_t offset = 0;
+    uint32_t size = 0;
 };
 
 class Color
@@ -141,6 +184,7 @@ public:
     double h{0};
 };
 
+// https://developer.mozilla.org/en-US/docs/Web/CSS/transform
 class Transform
 {
 public:
@@ -153,22 +197,24 @@ public:
 
     Transform& premultiply(const Transform& transform);
     Transform& postmultiply(const Transform& transform);
-    Transform& rotate(double angle);
-    Transform& rotate(double angle, double cx, double cy);
+    Transform& rotate(double angle_deg);
+    Transform& rotate(double angle_deg, double cx, double cy);
     Transform& scale(double sx, double sy);
     Transform& shear(double shx, double shy);
     Transform& translate(double tx, double ty);
     Transform& transform(double m00, double m10, double m01, double m11, double m02, double m12);
     Transform& identity();
     Transform& invert();
+    double rotation_rad() const;
+    double rotation_deg() const;
 
     void map(double x, double y, double* _x, double* _y) const;
     Point map(double x, double y) const;
     Point map(const Point& point) const;
     Rect map(const Rect& rect) const;
 
-    static Transform rotated(double angle);
-    static Transform rotated(double angle, double cx, double cy);
+    static Transform rotated(double angle_deg);
+    static Transform rotated(double angle_deg, double cx, double cy);
     static Transform scaled(double sx, double sy);
     static Transform sheared(double shx, double shy);
     static Transform translated(double tx, double ty);
@@ -182,7 +228,7 @@ public:
     double m12{0};
 };
 
-enum class PathCommand
+enum class PathCommand : uint8_t
 {
     MoveTo,
     LineTo,
@@ -234,7 +280,7 @@ private:
    unsigned int m_index{0};
 };
 
-enum class LengthUnits
+enum class LengthUnits : uint8_t
 {
     Unknown,
     Number,
@@ -249,7 +295,7 @@ enum class LengthUnits
     Percent
 };
 
-enum LengthMode
+enum LengthMode : uint8_t
 {
     Width,
     Height,
@@ -301,7 +347,7 @@ private:
     Units m_units{Units::UserSpaceOnUse};
 };
 
-enum class Align
+enum class Align : uint8_t
 {
     None,
     xMinYMin,
@@ -315,7 +361,7 @@ enum class Align
     xMaxYMax
 };
 
-enum class MeetOrSlice
+enum class MeetOrSlice : uint8_t
 {
     Meet,
     Slice
@@ -338,7 +384,7 @@ private:
     MeetOrSlice m_scale{MeetOrSlice::Meet};
 };
 
-enum class MarkerOrient
+enum class MarkerOrient : uint8_t
 {
     Auto,
     Angle
@@ -357,6 +403,17 @@ public:
 private:
     double m_value{0};
     MarkerOrient m_type{MarkerOrient::Angle};
+};
+
+using GradientStop = std::pair<double, Color>;
+using GradientStops = std::vector<GradientStop>;
+
+using DashArray = std::vector<double>;
+
+struct DashData
+{
+    DashArray array;
+    double offset{ 0.0 };
 };
 
 } // namespace lunasvg

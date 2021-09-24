@@ -1,6 +1,7 @@
 #include "canvas.h"
 
 #include <cmath>
+#include <cassert>
 
 namespace lunasvg {
 
@@ -13,24 +14,25 @@ static plutovg_spread_method_t to_plutovg_spread_methood(SpreadMethod spread);
 static void to_plutovg_stops(plutovg_gradient_t* gradient, const GradientStops& stops);
 static void to_plutovg_path(plutovg_t* pluto, const Path& path);
 
-std::shared_ptr<Canvas> Canvas::create(unsigned char* data, unsigned int width, unsigned int height, unsigned int stride)
+std::shared_ptr<CanvasBase> Canvas::create(unsigned char* data, unsigned int width, unsigned int height, unsigned int stride)
 {
-    return std::shared_ptr<Canvas>(new Canvas(data, static_cast<int>(width), static_cast<int>(height), static_cast<int>(stride)));
+    return std::make_shared<Canvas>(
+        data, static_cast<int>(width), static_cast<int>(height), static_cast<int>(stride));
 }
 
-std::shared_ptr<Canvas> Canvas::create(double x, double y, double width, double height)
+std::shared_ptr<CanvasBase> Canvas::create(double x, double y, double width, double height)
 {
     if(width <= 0.0 || height <= 0.0)
-        return std::shared_ptr<Canvas>(new Canvas(0, 0, 1, 1));
+        return std::make_shared<Canvas>(0, 0, 1, 1);
 
     auto l = static_cast<int>(floor(x));
     auto t = static_cast<int>(floor(y));
     auto r = static_cast<int>(ceil(x + width));
     auto b = static_cast<int>(ceil(y + height));
-    return std::shared_ptr<Canvas>(new Canvas(l, t, r - l, b - t));
+    return std::make_shared<Canvas>(l, t, r - l, b - t);
 }
 
-std::shared_ptr<Canvas> Canvas::create(const Rect& box)
+std::shared_ptr<CanvasBase> Canvas::create(const Rect& box)
 {
     return create(box.x, box.y, box.w, box.h);
 }
@@ -49,6 +51,10 @@ Canvas::Canvas(int x, int y, int width, int height)
     pluto = plutovg_create(surface);
     plutovg_matrix_init_translate(&translation, -x, -y);
     plutovg_rect_init(&rect, x, y, width, height);
+}
+
+Canvas::Canvas()
+{
 }
 
 Canvas::~Canvas()
@@ -84,9 +90,11 @@ void Canvas::setRadialGradient(double cx, double cy, double r, double fx, double
     plutovg_gradient_destroy(gradient);
 }
 
-void Canvas::setTexture(const Canvas* source, TextureType type, const Transform& transform)
+void Canvas::setTexture(const CanvasBase* source, TextureType type, const Transform& transform)
 {
-    auto texture = plutovg_texture_create(source->surface);
+    auto src = dynamic_cast<const Canvas*>(source);
+    assert(src != nullptr);
+    auto texture = plutovg_texture_create(src->surface);
     auto matrix = to_plutovg_matrix(transform);
     if(type == TextureType::Plain)
         plutovg_texture_set_type(texture, plutovg_texture_type_plain);
@@ -98,7 +106,7 @@ void Canvas::setTexture(const Canvas* source, TextureType type, const Transform&
     plutovg_texture_destroy(texture);
 }
 
-void Canvas::fill(const Path& path, const Transform& transform, WindRule winding, BlendMode mode, double opacity)
+void Canvas::fill(const Path& path, const Transform& transform, WindRule winding, BlendMode mode, double opacity, bool isDisplayMode)
 {
     auto matrix = to_plutovg_matrix(transform);
     plutovg_matrix_multiply(&matrix, &matrix, &translation);
@@ -126,9 +134,11 @@ void Canvas::stroke(const Path& path, const Transform& transform, double width, 
     plutovg_stroke(pluto);
 }
 
-void Canvas::blend(const Canvas* source, BlendMode mode, double opacity)
+void Canvas::blend(const CanvasBase* source, BlendMode mode, double opacity)
 {
-    plutovg_set_source_surface(pluto, source->surface, source->rect.x, source->rect.y);
+    auto src = dynamic_cast<const Canvas*>(source);
+    assert(src != nullptr);
+    plutovg_set_source_surface(pluto, src->surface, src->rect.x, src->rect.y);
     plutovg_set_operator(pluto, to_plutovg_operator(mode));
     plutovg_set_opacity(pluto, opacity);
     plutovg_set_matrix(pluto, &translation);
@@ -253,27 +263,47 @@ plutovg_matrix_t to_plutovg_matrix(const Transform& transform)
 
 plutovg_fill_rule_t to_plutovg_fill_rule(WindRule winding)
 {
-    return winding == WindRule::EvenOdd ? plutovg_fill_rule_even_odd : plutovg_fill_rule_non_zero;
+    return winding == WindRule::EvenOdd
+        ? plutovg_fill_rule_even_odd
+        : plutovg_fill_rule_non_zero;
 }
 
 plutovg_operator_t to_plutovg_operator(BlendMode mode)
 {
-    return mode == BlendMode::Src ? plutovg_operator_src : mode == BlendMode::Src_Over ? plutovg_operator_src_over : mode == BlendMode::Dst_In ? plutovg_operator_dst_in : plutovg_operator_dst_out;
+    return mode == BlendMode::Src
+        ? plutovg_operator_src
+        : mode == BlendMode::Src_Over
+            ? plutovg_operator_src_over
+            : mode == BlendMode::Dst_In
+                ? plutovg_operator_dst_in
+                : plutovg_operator_dst_out;
 }
 
 plutovg_line_cap_t to_plutovg_line_cap(LineCap cap)
 {
-    return cap == LineCap::Butt ? plutovg_line_cap_butt : cap == LineCap::Round ? plutovg_line_cap_round : plutovg_line_cap_square;
+    return cap == LineCap::Butt
+        ? plutovg_line_cap_butt
+        : cap == LineCap::Round
+            ? plutovg_line_cap_round
+            : plutovg_line_cap_square;
 }
 
 plutovg_line_join_t to_plutovg_line_join(LineJoin join)
 {
-    return join == LineJoin::Miter ? plutovg_line_join_miter : join == LineJoin::Round ? plutovg_line_join_round : plutovg_line_join_bevel;
+    return join == LineJoin::Miter
+        ? plutovg_line_join_miter
+        : join == LineJoin::Round
+            ? plutovg_line_join_round
+            : plutovg_line_join_bevel;
 }
 
 static plutovg_spread_method_t to_plutovg_spread_methood(SpreadMethod spread)
 {
-    return spread == SpreadMethod::Pad ? plutovg_spread_method_pad : spread == SpreadMethod::Reflect ? plutovg_spread_method_reflect : plutovg_spread_method_repeat;
+    return spread == SpreadMethod::Pad
+        ? plutovg_spread_method_pad
+        : spread == SpreadMethod::Reflect
+            ? plutovg_spread_method_reflect
+            : plutovg_spread_method_repeat;
 }
 
 static void to_plutovg_stops(plutovg_gradient_t* gradient, const GradientStops& stops)

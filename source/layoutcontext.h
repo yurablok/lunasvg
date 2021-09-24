@@ -1,12 +1,14 @@
-﻿#ifndef LAYOUTCONTEXT_H
+#ifndef LAYOUTCONTEXT_H
 #define LAYOUTCONTEXT_H
 
 #include "property.h"
-#include "canvas.h"
 
 #include <list>
 #include <map>
 #include <set>
+#include <functional>
+#include <memory>
+#include <cassert>
 
 namespace lunasvg {
 
@@ -21,7 +23,9 @@ enum class LayoutId
     LinearGradient,
     RadialGradient,
     Pattern,
-    SolidColor
+    SolidColor,
+    Text,
+    TSpan
 };
 
 class RenderState;
@@ -158,7 +162,7 @@ class LayoutPattern : public LayoutContainer
 public:
     LayoutPattern();
 
-    void apply(RenderState& state) const;
+    void apply(RenderState& state) const override;
 
 public:
     double x;
@@ -218,10 +222,48 @@ class LayoutSolidColor : public LayoutObject
 public:
     LayoutSolidColor();
 
-    void apply(RenderState& state) const;
+    void apply(RenderState& state) const override;
 
 public:
     Color color;
+};
+
+class LayoutText : public LayoutContainer
+{
+public:
+    LayoutText();
+
+    void render(RenderState& state) const override;
+
+public:
+    Transform transform;
+    Point pos_px;
+    std::string textBuffer;
+    string_index_view text;
+    std::string family;
+    Color color;
+    double size_px = 0.0;
+    FontWeight weight = FontWeight::Normal;
+    FontStyle style = FontStyle::Normal;
+};
+
+class LayoutTSpan : public LayoutObject
+{
+public:
+    LayoutTSpan();
+
+    void render(RenderState& state) const override;
+
+public:
+    Transform transform;
+    std::vector<double> x_px;
+    double y_px = 0.0;
+    string_index_view text; // LayoutText::textBuffer
+    std::string family;
+    Color color;
+    double size_px = 0.0;
+    FontWeight weight = FontWeight::Normal;
+    FontStyle style = FontStyle::Normal;
 };
 
 class FillData
@@ -289,10 +331,10 @@ class LayoutShape : public LayoutObject
 public:
     LayoutShape();
 
-    void render(RenderState& state) const;
-    Rect map(const Rect& rect) const;
-    const Rect& fillBoundingBox() const;
-    const Rect& strokeBoundingBox() const;
+    void render(RenderState& state) const override;
+    Rect map(const Rect& rect) const override;
+    const Rect& fillBoundingBox() const override;
+    const Rect& strokeBoundingBox() const override;
 
 public:
     Path path;
@@ -324,6 +366,8 @@ struct BlendInfo
     Rect clip;
 };
 
+class CanvasBase;
+
 class RenderState
 {
 public:
@@ -337,7 +381,7 @@ public:
     const Rect& objectBoundingBox() const { return m_object->fillBoundingBox(); }
 
 public:
-    std::shared_ptr<Canvas> canvas;
+    std::shared_ptr<CanvasBase> canvas;
     Transform transform;
 
 private:

@@ -1,5 +1,6 @@
 #include "layoutcontext.h"
 #include "parser.h"
+#include "canvas_base.h"
 
 #include "maskelement.h"
 #include "clippathelement.h"
@@ -96,7 +97,7 @@ LayoutClipPath::LayoutClipPath()
 void LayoutClipPath::apply(RenderState& state) const
 {
     RenderState newState(this, RenderMode::Clipping);
-    newState.canvas = Canvas::create(state.canvas->box());
+    newState.canvas = state.canvas->create(state.canvas->box());
     newState.transform = transform * state.transform;
     if(units == Units::ObjectBoundingBox)
     {
@@ -128,7 +129,7 @@ void LayoutMask::apply(RenderState& state) const
     }
 
     RenderState newState(this, state.mode());
-    newState.canvas = Canvas::create(state.canvas->box());
+    newState.canvas = state.canvas->create(state.canvas->box());
     newState.transform = state.transform;
     if(contentUnits == Units::ObjectBoundingBox)
     {
@@ -247,7 +248,7 @@ void LayoutPattern::apply(RenderState& state) const
     auto height = rect.h * scaley;
 
     RenderState newState(this, RenderMode::Display);
-    newState.canvas = Canvas::create(0, 0, width, height);
+    newState.canvas = state.canvas->create(0, 0, width, height);
     newState.transform = Transform::scaled(scalex, scaley);
 
     if(viewBox.valid())
@@ -323,12 +324,15 @@ void FillData::fill(RenderState& state, const Path& path) const
     if(opacity == 0.0 || (painter == nullptr && color.isNone()))
         return;
 
-    if(painter == nullptr)
+    if(painter == nullptr) {
+        state.canvas->setObject();
         state.canvas->setColor(color);
-    else
+    }
+    else {
+        state.canvas->setObject(painter);
         painter->apply(state);
-
-    state.canvas->fill(path, state.transform, fillRule, BlendMode::Src_Over, opacity);
+    }
+    state.canvas->fill(path, state.transform, fillRule, BlendMode::Src_Over, opacity, true);
 }
 
 void StrokeData::stroke(RenderState& state, const Path& path) const
@@ -336,11 +340,14 @@ void StrokeData::stroke(RenderState& state, const Path& path) const
     if(opacity == 0.0 || (painter == nullptr && color.isNone()))
         return;
 
-    if(painter == nullptr)
+    if(painter == nullptr) {
+        state.canvas->setObject();
         state.canvas->setColor(color);
-    else
+    }
+    else {
+        state.canvas->setObject(painter);
         painter->apply(state);
-
+    }
     state.canvas->stroke(path, state.transform, width, cap, join, miterlimit, dash, BlendMode::Src_Over, opacity);
 }
 
@@ -412,7 +419,7 @@ void LayoutShape::render(RenderState& state) const
     else
     {
         newState.canvas->setColor(Color::Black);
-        newState.canvas->fill(path, newState.transform, clipRule, BlendMode::Src, 1.0);
+        newState.canvas->fill(path, newState.transform, clipRule, BlendMode::Src, 1.0, false);
     }
 
     newState.endGroup(state, info);
@@ -459,7 +466,7 @@ void RenderState::beginGroup(RenderState& state, const BlendInfo& info)
     auto box = transform.map(m_object->strokeBoundingBox());
     box.intersect(transform.map(info.clip));
     box.intersect(state.canvas->box());
-    canvas = Canvas::create(box);
+    canvas = state.canvas->create(box);
 }
 
 void RenderState::endGroup(RenderState& state, const BlendInfo& info)
@@ -761,6 +768,101 @@ LayoutBreaker::LayoutBreaker(LayoutContext* context, const Element* element)
 LayoutBreaker::~LayoutBreaker()
 {
     m_context->removeReference(m_element);
+}
+
+LayoutText::LayoutText()
+    : LayoutContainer(LayoutId::Text)
+{
+}
+
+void LayoutText::render(RenderState& state) const
+{
+    //TODO: unimplemented
+
+    if (text.size != 0) {
+        state.canvas->setObject(this);
+        state.canvas->setColor(color);
+
+        state.canvas->text(
+            pos_px, transform * state.transform,
+            style, weight, size_px, text
+        );
+    }
+    renderChildren(state);
+}
+
+LayoutTSpan::LayoutTSpan()
+    : LayoutObject(LayoutId::TSpan)
+{
+}
+
+void LayoutTSpan::render(RenderState& state) const
+{
+    //TODO: unimplemented
+    [] {};
+
+    // gradient, pattern, clipping path, mask, filter
+
+    if (text.size != 0) {
+        state.canvas->setObject(this);
+        state.canvas->setColor(color);
+
+        if (x_px.size() == 1) {
+            state.canvas->text(
+                Point(x_px[0], y_px), transform * state.transform,
+                style, weight, size_px, text
+            );
+        }
+        else {
+            assert(text.buffer != nullptr);
+            string_index_view ch;
+            ch.buffer = text.buffer;
+            for (uint32_t i = 0, x_idx = 0; i < text.size && x_idx < x_px.size(); ++x_idx) {
+                uint32_t width = 0;
+                // 1 - 0xxxxxxx
+                if ((text.buffer->at(i) & 0x80) == 0x00) {
+                    width = 1;
+                }
+                // 2 - 110xxxxx 10xxxxxx
+                else if ((text.buffer->at(i) & 0xE0) == 0xC0) {
+                    width = 2;
+                }
+                // 3 - 1110xxxx 10xxxxxx 10xxxxxx
+                else if ((text.buffer->at(i) & 0xF0) == 0xE0) {
+                    width = 3;
+                }
+                // 4 - 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
+                else if ((text.buffer->at(i) & 0xF8) == 0xF0) {
+                    width = 4;
+                }
+                // 5 - 111110xx 10xxxxxx 10xxxxxx 10xxxxxx 10xxxxxx
+                else if ((text.buffer->at(i) & 0xFC) == 0xF8) {
+                    width = 5;
+                }
+                else {
+                    // Invalid UTF-8 value
+                    break;
+                }
+                if (width + i > text.size) {
+                    // Unexpected endl
+                    break;
+                }
+                // Not checked for 10xxxxxx
+                ch.offset = i;
+                ch.size = width;
+                state.canvas->text(
+                    Point(x_px[x_idx], y_px), transform * state.transform,
+                    style, weight, size_px, ch
+                );
+                i += width;
+            }
+        }
+    }
+
+    //BlendInfo info{ clipper, masker, 1.0, Rect::Invalid };
+    //RenderState newState(this, state.mode());
+    //newState.transform = transform * state.transform;
+    //newState.beginGroup(state, info);
 }
 
 } // namespace lunasvg

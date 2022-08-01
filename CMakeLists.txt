@@ -1,9 +1,11 @@
-cmake_minimum_required(VERSION 3.3)
+cmake_minimum_required(VERSION 3.12)
 
 project(lunasvg VERSION 2.3.0 LANGUAGES CXX C)
 
-set(CMAKE_CXX_STANDARD 14)
-set(CMAKE_C_STANDARD 11)
+if(BUILD_SHARED_LIBS)
+    set(CMAKE_CXX_STANDARD 14)
+    set(CMAKE_C_STANDARD 11)
+endif()
 
 option(BUILD_SHARED_LIBS "Builds as shared library" OFF)
 option(LUNASVG_BUILD_EXAMPLES "Builds examples" OFF)
